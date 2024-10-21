@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation Template for an RDS MySQL Instance with Multi-AZ and Secrets Manager
+
+Parameters:
+  VPCId:
+    Type: String
+    Description: VPC ID for the network
+
+  RDSSecurityGroupId:
+    Type: String
+    Description: Security Group ID for the RDS instance
+
+  RDSPrivateSubnetAZ1Id:
+    Type: String
+    Description: Private Subnet ID for AZ1
+
+  RDSPrivateSubnetAZ2Id:
+    Type: String
+    Description: Private Subnet ID for AZ2
+
+  RDSSecretArn:
+    Type: String
+    Description: ARN of the secret in AWS Secrets Manager containing the RDS credentials
+
+Resources:
+
+  # RDS Subnet Group
+  RDSSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for RDS"
+      SubnetIds:
+        - !Ref RDSPrivateSubnetAZ1Id
+        - !Ref RDSPrivateSubnetAZ2Id
+      Tags:
+        - Key: Name
+          Value: RDSSubnetGroup
+
+  # RDS MySQL Instance
+  MyRDSInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.medium
+      Engine: mysql
+      EngineVersion: '8.0'
+      MasterUsername: !Sub "{{resolve:secretsmanager:${RDSSecretArn}:SecretString:username}}"
+      MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecretArn}:SecretString:password}}"
+      MultiAZ: true
+      VPCSecurityGroups:
+        - !Ref RDSSecurityGroupId
+      DBSubnetGroupName: !Ref RDSSubnetGroup
+      StorageEncrypted: true
+      BackupRetentionPeriod: 7
+      DBName: ecommerce  # Name of the database
+    # Correct way to apply DeletionPolicy
+    DeletionPolicy: Snapshot
+
+
+
+Outputs:
+  RDSInstanceEndpoint:
+    Description: The endpoint of the RDS instance
+    Value: !GetAtt MyRDSInstance.Endpoint.Address
+    Export:
+      Name: RDSInstanceEndpoint
