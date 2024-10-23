@@ -6,15 +6,15 @@ Parameters:
     Type: String
     Description: The ARN of the Application Load Balancer
 
-  # BlockedRequestAlarmThreshold:
-  #   Type: Number
-  #   Default: 5
-  #   Description: Threshold for the cloud alarm to trigger an action for blocked request.
+  BlockedRequestAlarmThreshold:
+    Type: Number
+    Default: 20
+    Description: Threshold for the cloud alarm to trigger an action for blocked request.
 
-  # AllowedRequestAlarmThreshold:
-  #   Type: Number
-  #   Default: 20
-  #   Description: Threshold for the cloud alarm to trigger an action for blocked request.
+  AllowedRequestAlarmThreshold:
+    Type: Number
+    Default: 200
+    Description: Threshold for the cloud alarm to trigger an action for blocked request.
 
   RateLimitRuleThreshold:
     Type: Number
@@ -52,13 +52,82 @@ Resources:
         MetricName: EcommerceWAFACLMetric
       Rules:
       
-        ######### Assigned  AWS Managed rules manually 
+
+        - Name: "AWSManagedRulesCommonRuleSet"
+          Priority: 0
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: "AWS"
+              Name: "AWSManagedRulesCommonRuleSet"
+          OverrideAction:
+            None: {}  # Do not override, allow the managed rule to block requests
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: "CommonRuleSet"
+
+
+        - Name: "AWSManagedRulesKnownBadInputsRuleSet"
+          Priority: 1
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: "AWS"
+              Name: "AWSManagedRulesKnownBadInputsRuleSet"
+          OverrideAction:
+            None: {}  # Do not override, allow the managed rule to block requests
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: "KnownBadInputsRule"
+
+            
+        - Name: "AWSManagedRulesSQLiRuleSet"
+          Priority: 2
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: "AWS"
+              Name: "AWSManagedRulesSQLiRuleSet"
+          OverrideAction:
+            None: {}  # Do not override, allow the managed rule to block requests
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: "SQLInjection-Rule"
+
+
+        - Name: "AWSManagedRulesPHPRuleSet"
+          Priority: 3
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: "AWS"
+              Name: "AWSManagedRulesPHPRuleSet"
+          OverrideAction:
+            None: {}  # Do not override, allow the managed rule to block requests
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: "PHPRuleSet"
+
+
+        - Name: "AWSManagedRulesLinuxRuleSet"
+          Priority: 4
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: "AWS"
+              Name: "AWSManagedRulesLinuxRuleSet"
+          OverrideAction:
+            None: {}  # Do not override, allow the managed rule to block requests
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: "LinuxRuleSet"
+
 
      
         - Name: RateLimitRule
           Action:
             Block: {}
-          Priority: 1
+          Priority: 5
           Statement:
             RateBasedStatement:
               Limit: !Ref RateLimitRuleThreshold
@@ -73,7 +142,7 @@ Resources:
         - Name: BlockBadIPsRule
           Action:
             Block: {}
-          Priority: 2
+          Priority: 6
           Statement:
             IPSetReferenceStatement:
               Arn: !GetAtt IPSetBlacklist.Arn
@@ -126,63 +195,109 @@ Resources:
       Endpoint: "+15713855625"  # Replace with your phone number
 
 
-  #### Setting up cloud alarms manually due to some issues
 
 
 
+  # CloudWatch Alarm 
+  WAFAllowedRequestsAlarm:  
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: WAFAllowedRequestsAlarm
+      AlarmDescription: "Alarm when WAF allows requests beyond a threshold"
+      MetricName: AllowedRequests
+      Namespace: AWS/WAFV2
+      Dimensions: 
+        - Name: WebACL
+          Value: EcommerceWAFACL 
+        - Name: "Region"
+          Value: !Sub "${AWS::Region}"
+        - Name: "Rule"
+          Value: "ALL"
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref AllowedRequestAlarmThreshold 
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
+      # OKActions:
+      #   - !Ref AlarmSNSTopic  # Optional: Sends notification when the alarm is resolved
 
-  # CloudWatch Alarm for Blocked Requests
-  # It sets up a CloudWatch alarm to monitor a particular metric and trigger actions if the threshold is crossed.
-  # WAFAllowedRequestsAlarm:  
-  #   Type: AWS::CloudWatch::Alarm
-  #   Properties:
-  #     AlarmName: WAFAllowedRequestsAlarm
-  #     MetricName: AllowedRequests
-  #     Namespace: AWS/WAFV2
-  #     Dimensions:
-  #       - Name: WebACL
-  #         Value: EcommerceWAFACL 
-  #     Statistic: Sum
-  #     Period: 30
-  #     EvaluationPeriods: 1
-  #     Threshold: !Ref AllowedRequestAlarmThreshold 
-  #     ComparisonOperator: GreaterThanOrEqualToThreshold
-  #     TreatMissingData: notBreaching
-  #     AlarmActions:
-  #       - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
 
-
-  # WAFBlockedRequestsAlarm:
-  #   Type: AWS::CloudWatch::Alarm
-  #   Properties:
-  #     AlarmName: WAFBlockedRequestsAlarm
-  #     MetricName: BlockedRequests
-  #     Namespace: AWS/WAFV2
-  #     Dimensions:
-  #       - Name: WebACL
-  #         Value: EcommerceWAFACL 
-  #     Statistic: Sum
-  #     Period: 300
-  #     EvaluationPeriods: 1
-  #     Threshold: !Ref BlockedRequestAlarmThreshold
-  #     ComparisonOperator: GreaterThanOrEqualToThreshold
-  #     TreatMissingData: notBreaching
-  #     AlarmActions:
-  #       - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
+  WAFBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: WAFBlockedRequestsAlarm
+      MetricName: BlockedRequests
+      Namespace: AWS/WAFV2
+      Dimensions:
+        - Name: WebACL
+          Value: EcommerceWAFACL 
+        - Name: "Region"
+          Value: !Sub "${AWS::Region}"
+        - Name: "Rule"
+          Value: "ALL"
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref BlockedRequestAlarmThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
 
 
 
   ## Setting up logging manually
+  # WAF Logging Configuration to CloudWatch Logs
+  WAFLoggingConfiguration:
+    Type: AWS::WAFv2::LoggingConfiguration
+    DependsOn: CloudWatchLogGroup  # Ensures that the Log Group is created first
+
+    Properties:
+      ResourceArn: !GetAtt WebACL.Arn
+      LogDestinationConfigs:
+        - !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:aws-waf-logs-my-ecommerce-logs
 
 
-  # WAFLoggingConfiguration:
-  #   Type: AWS::WAFv2::LoggingConfiguration
-  #   Properties:
-  #     ResourceArn: !GetAtt WebACL.Arn
-  #     LogDestinationConfigs:
-  #       - arn:aws:s3:::my-ecommerce-waf-logs-bucket
-     
-       
+  # CloudWatch Log Group for WAF Logs
+  CloudWatchLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: "aws-waf-logs-my-ecommerce-logs"
+      RetentionInDays: 30  # Adjust retention as needed
+
+  # Metric Filter to capture WAF blocked requests
+  WAFBlockedRequestsMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties:
+      LogGroupName: "aws-waf-logs-my-ecommerce-logs"
+      FilterName : BlockedRequestLogFilter,
+      FilterPattern: '{$.action = "BLOCK"}'  # Looks for 'BLOCK' in the logs
+      MetricTransformations:
+        - MetricValue: "1"
+          MetricNamespace: "Ecommerce/WAFV2"
+          MetricName: "BlockedRequests"
+         
+  # Alarm using the metric created by the filter
+  WAFLogBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "WAFLogBlockedRequestsHigh"
+      AlarmDescription: "Alarm when WAF blocks too many requests according to the log generated"
+      Namespace: "Ecommerce/WAFV2"  # Using the custom namespace created by the Metric Filter
+      MetricName: "BlockedRequests"
+      Statistic: Sum
+      Period: 300  # 5 minutes (can adjust based on your monitoring needs)
+      EvaluationPeriods: 1
+      Threshold: !Ref BlockedRequestAlarmThreshold  # Trigger alarm when blocked requests exceed 100 in the given period
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic  # Sends notification to SNS when the alarm is triggered
+      TreatMissingData: breaching
+
+
 
 Outputs:
   WebACLArn:
