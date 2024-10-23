@@ -88,29 +88,37 @@ Resources:
       HealthyThresholdCount: 3  # Consider instance healthy after 3 successful checks
       UnhealthyThresholdCount: 3  # Consider instance unhealthy after 3 failed checks
 
-  # HTTPS Listener for ALB
-  # MyHTTPSListener:
-  #   Type: AWS::ElasticLoadBalancingV2::Listener  # Listener to handle HTTPS traffic
-  #   Properties:
-  #     DefaultActions:
-  #       - Type: forward
-  #         TargetGroupArn: !Ref MyTargetGroup  # Forward HTTPS traffic to the target group
-  #     LoadBalancerArn: !Ref EcommerceALB  # Attach to the ALB
-  #     Port: 443  # Listen for HTTPS traffic on port 443
-  #     Protocol: HTTPS  # Use HTTPS for secure traffic
-  #     Certificates:  # SSL Certificate from AWS Certificate Manager (ACM) for HTTPS
-  #       - CertificateArn: !Ref SSLCertificateArn #arn:aws:acm:region:account-id:certificate/certificate-id  # Replace with your actual ACM certificate ARN
-
+  
   # HTTP Listener for ALB
+  # Redirect to HTTP 
   MyHTTPListener:
     Type: AWS::ElasticLoadBalancingV2::Listener  # Listener to handle HTTP traffic
     Properties:
       DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref EcommerceTargetGroup  # Forward HTTP traffic to the target group
+        - Type: redirect
+          RedirectConfig:
+            Protocol: HTTPS
+            Port: "443"
+            StatusCode: HTTP_301
       LoadBalancerArn: !Ref EcommerceALB  # Attach to the ALB
       Port: 80  # Listen for HTTP traffic on port 80
       Protocol: HTTP  # Use HTTP
+
+
+  # HTTPS Listener for ALB
+  MyHTTPSListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener  # Listener to handle HTTPS traffic
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref EcommerceTargetGroup  # Forward HTTPS traffic to the target group
+      LoadBalancerArn: !Ref EcommerceALB  # Attach to the ALB
+      Port: 443  # Listen for HTTPS traffic on port 443
+      Protocol: HTTPS  # Use HTTPS for secure traffic
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-2017-01 # Strong TLS policy
+      Certificates:  # SSL Certificate from AWS Certificate Manager (ACM) for HTTPS
+        - CertificateArn: !Ref SSLCertificateArn #arn:aws:acm:region:account-id:certificate/certificate-id  # Replace with your actual ACM certificate ARN
+
 
 
   # Launch Template for EC2 instances
