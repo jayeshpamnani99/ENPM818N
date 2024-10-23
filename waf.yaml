@@ -295,7 +295,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref AlarmSNSTopic  # Sends notification to SNS when the alarm is triggered
-      TreatMissingData: breaching
+      TreatMissingData: notBreaching
 
 
 
