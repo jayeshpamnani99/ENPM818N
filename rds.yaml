@@ -22,6 +22,91 @@ Parameters:
     Type: String
     Description: ARN of the secret in AWS Secrets Manager containing the RDS credentials
 
+  DBInstanceClass:
+    Description: "Database instance type"
+    Type: String
+    Default: db.t3.medium
+    AllowedValues: 
+      - db.t3.micro
+      - db.t3.small
+      - db.t3.medium
+      - db.t3.large
+    ConstraintDescription: "Must be a valid RDS instance type."
+
+  DBEngine:
+    Description: "The database engine to use"
+    Type: String
+    Default: "mysql"
+    AllowedValues:
+      - mysql
+      - postgres
+      - mariadb
+      - oracle-se2
+      - sqlserver-ex
+    ConstraintDescription: "Must be a valid RDS engine."
+
+  DBEngineVersion:
+    Description: "The version of the database engine"
+    Type: String
+    Default: "8.0"
+    AllowedValues:
+      - "5.7.33"   # MySQL 5.7
+      - "8.0"   # MySQL 8.0
+      - "13.3"     # PostgreSQL 13
+      - "10.6"     # MariaDB 10.6
+      - "19.0.0.0.ru-2021-10.rur-2021-10.r1"  # Oracle SE2
+      - "14.00.1000.169"   # SQL Server 2019 Express
+    ConstraintDescription: "Must be a valid engine version for the selected engine."
+
+  DBSnapshotIdentifier:
+    Description: "The identifier for the RDS snapshot to restore from"
+    Type: String
+    Default: ""  # Replace with your snapshot identifier
+    ConstraintDescription: "Must be a valid RDS snapshot identifier."
+
+  DBInstanceIdentifier:
+    Description: "The name of the new RDS instance"
+    Type: String
+    Default: "ecommerce-db-instance"
+    ConstraintDescription: "Must be a valid DB instance identifier."
+
+  DBName:
+    Description: "The name of the database"
+    Type: String
+    Default: "ecommerce"
+    
+  DBAllocatedStorage:
+    Description: "The size of the database (GB)"
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 1000
+    ConstraintDescription: "Must be between 20 and 1000 GB."
+
+  KmsKeyId:
+    Description: "The KMS Key ID to use for encryption"
+    Type: String
+    Default: ""
+    ConstraintDescription: "Must be a valid KMS key ID."
+
+  MultiAZ:
+    Description: "Enable Multi-AZ deployment"
+    Type: String
+    Default: true
+    AllowedValues: 
+      - true
+      - false
+
+Conditions:
+  HasSnapshot:
+    Fn::Not:
+      - Fn::Equals: [!Ref DBSnapshotIdentifier, ""]
+
+  HasKmsKey:
+    Fn::Not:
+      - Fn::Equals: [!Ref KmsKeyId, ""]
+
+
 Resources:
 
   # RDS Subnet Group
@@ -40,19 +125,29 @@ Resources:
   MyRDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      AllocatedStorage: 20
-      DBInstanceClass: db.t3.medium
-      Engine: mysql
-      EngineVersion: '8.0'
+      DBSnapshotIdentifier: !If 
+        - HasSnapshot  # Condition that checks if a snapshot identifier is provided
+        - !Ref DBSnapshotIdentifier  # Use snapshot if provided
+        - !Ref "AWS::NoValue"  # Ignore this property if no snapshot is provided
+      DBInstanceIdentifier: !Ref DBInstanceIdentifier
+      AllocatedStorage: !Ref DBAllocatedStorage
+      DBInstanceClass: !Ref DBInstanceClass
+      Engine: !Ref DBEngine
+      EngineVersion: !Ref DBEngineVersion
       MasterUsername: !Sub "{{resolve:secretsmanager:${RDSSecretArn}:SecretString:username}}"
       MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecretArn}:SecretString:password}}"
-      MultiAZ: true
+      PubliclyAccessible: false  # Keep the DB instance private
+      MultiAZ: !Ref MultiAZ
       VPCSecurityGroups:
         - !Ref RDSSecurityGroupId
       DBSubnetGroupName: !Ref RDSSubnetGroup
-      StorageEncrypted: true
+      StorageEncrypted: !If [HasKmsKey, true, false]  # Enable encryption if KMS key is provided
+      KmsKeyId: !If [HasKmsKey, !Ref KmsKeyId, !Ref "AWS::NoValue"]  # Use KMS key for encryption if provided
       BackupRetentionPeriod: 7
-      DBName: ecommerce  # Name of the database
+      DBName: !If # Not required if using a database snapshot 
+        - HasSnapshot  # Condition that checks if a snapshot identifier is provided
+        - !Ref "AWS::NoValue"  # Ignore this property if no snapshot is provided
+        - !Ref DBName
     # Correct way to apply DeletionPolicy
     DeletionPolicy: Snapshot
 
@@ -64,3 +159,9 @@ Outputs:
     Value: !GetAtt MyRDSInstance.Endpoint.Address
     Export:
       Name: RDSInstanceEndpoint
+
+  DBInstancePort:
+    Description: "The port for the RDS MySQL instance"
+    Value: !GetAtt MyRDSInstance.Endpoint.Port
+    Export:
+      Name: RDSInstancePort
