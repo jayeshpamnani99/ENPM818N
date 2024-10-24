@@ -1,22 +1,23 @@
 <?php
 
-//include('../../inc/dbinfo.php');
-
+// Enable error reporting
 error_reporting(-1);
-ini_set('display_errors',TRUE);
+ini_set('display_errors', TRUE);
 
-//include "../../inc/dbinfo.inc";
+// Define database connection variables (these will be set by UserData)
+$servername = '';
+$username = '';
+$password = '';
+$dbname = '';
 
-$con=new mysqli('ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com', 'admin', 'ENPM818N|E-commerce','ecommerce');
+// Creating a new MySQLi connection
+$con = new mysqli($servername, $username, $password, $dbname);
 
-//mysqli_connect('localhost','root','','ecommerce_1');
-//$con = new mysqli('localhost','root','','ecommerce_1');
-
-if(!$con){
-    die(mysqli_error($con));
+// Check connection
+if ($con->connect_error) {
+    die("Connection failed: " . $con->connect_error);
 }
 
-
-
+// Your application code goes here...
 
 ?>
