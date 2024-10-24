@@ -8,6 +8,7 @@ sudo yum install httpd -y
 sudo yum install jq
 sudo systemctl start httpd
 sudo systemctl enable httpd
+sudo yum install mysql -y
 cd /var/www/html
 sudo git clone https://github.com/jayeshpamnani99/ENPM818N.git
 sudo mv ENPM818N/* .
@@ -32,18 +33,22 @@ sudo sed -i "s/\$servername =.*/\$servername = '${RDS_HOST}';/" /var/www/html/in
 sudo sed -i "s/\$username =.*/\$username = '${RDS_USER}';/" /var/www/html/includes/connect.php
 sudo sed -i "s/\$password =.*/\$password = '${RDS_PASSWORD}';/" /var/www/html/includes/connect.php
 sudo sed -i "s/\$dbname =.*/\$dbname = '${RDS_DBNAME}';/" /var/www/html/includes/connect.php
-
-
-
 sudo systemctl restart httpd
 
 
+
+
+
+
+
+
+
+
+
+
+
+
 mysql -h <Your RDS Endpoint> -u <Your Username> -p
+mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com --ssl-ca=us-east-1-bundle.pem --ssl-mode=REQUIRED -P 3306 -u admin -p
 
 
-
-
-
-curl -sS https://getcomposer.org/installer | php && sudo mv composer.phar /usr/local/bin/composer
-composer --version
-composer require aws/aws-sdk-php
