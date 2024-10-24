@@ -10,8 +10,8 @@ include('../functions/common_functions.php');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ecommerce User Registeration Page</title>
-    <link rel="stylesheet" href="../assets/css/bootstrap.css" />
-    <link rel="stylesheet" href="../assets/css/main.css" />
+    <link rel="stylesheet" href="https://d1jgo4v1hbr1c6.cloudfront.net/assets/css/bootstrap.css" />
+    <link rel="stylesheet" href="https://d1jgo4v1hbr1c6.cloudfront.net/assets/css/main.css" />
 </head>
 
 <body>
