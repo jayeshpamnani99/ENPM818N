@@ -3,27 +3,52 @@
 error_reporting(-1);
 ini_set('display_errors', TRUE);
 
-// Define database connection variables
-$servername = '';
-$username = '';
-$password = '';
-$dbname = '';
+// AWS SDK autoloader
+require '/var/www/html/vendor/autoload.php';
 
-// Set the charset explicitly
-mysqli_set_charset($con, 'utf8mb4');
+use Aws\SecretsManager\SecretsManagerClient;
+use Aws\Exception\AwsException;
 
-// Creating a new MySQLi connection with charset specification
-$con = mysqli_init();
-mysqli_options($con, MYSQLI_OPT_CONNECT_TIMEOUT, 30);
-mysqli_real_connect($con, $servername, $username, $password, $dbname);
+try {
+    // Create a Secrets Manager Client
+    $client = new SecretsManagerClient([
+        'version' => 'latest',
+        'region'  => 'us-east-1'
+    ]);
 
-// Check connection
-if ($con->connect_error) {
-    die("Connection failed: " . $con->connect_error);
+    // Get the secret value
+    $result = $client->getSecretValue([
+        'SecretId' => 'ecommerce/rds/credentials2'
+    ]);
+
+    if (isset($result['SecretString'])) {
+        $secret = json_decode($result['SecretString'], true);
+        
+        // Extract database credentials
+        $servername = $secret['RDS_HOST'];
+        $username = $secret['RDS_USER'];
+        $password = $secret['RDS_PASSWORD'];
+        $dbname = $secret['RDS_DBNAME'];
+        
+        // Create database connection
+        $con = mysqli_init();
+        mysqli_options($con, MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+        
+        if (!mysqli_real_connect($con, $servername, $username, $password, $dbname)) {
+            throw new Exception("Database connection failed: " . mysqli_connect_error());
+        }
+        
+        // Set charset after successful connection
+        if (!$con->set_charset("utf8mb4")) {
+            throw new Exception("Error loading character set utf8mb4: " . $con->error);
+        }
+    }
+    
+} catch (AwsException $e) {
+    die("Error retrieving secret: " . $e->getMessage());
+} catch (Exception $e) {
+    die("Error: " . $e->getMessage());
 }
-
-// Set the charset after connection
-$con->set_charset("utf8mb4");
 
 // Your application code goes here...
 ?>
