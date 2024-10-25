@@ -145,7 +145,7 @@ Resources:
             #!/bin/bash
 
             # Make it executable
-            sudo chmod +x /var/www/html/myscript.sh
+            sudo chmod +x /var/www/html/startupScript.sh
 
             # Run your bash script
             /var/www/html/startupScript.sh

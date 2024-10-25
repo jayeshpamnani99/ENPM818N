@@ -59,6 +59,8 @@ Resources:
             ManagedRuleGroupStatement:
               VendorName: "AWS"
               Name: "AWSManagedRulesCommonRuleSet"
+              ExcludedRules:  # Exclude specific rule by its rule ID
+                - Name: "SizeRestrictions_BODY"
           OverrideAction:
             None: {}  # Do not override, allow the managed rule to block requests
           VisibilityConfig:
