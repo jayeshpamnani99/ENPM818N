@@ -1,0 +1,328 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to create a CloudWatch Dashboard and Alarms for an enhanced e-commerce infrastructure.
+
+Parameters:
+  AutoScalingGroupName:
+    Type: String
+    Description: Name of the Auto Scaling Group
+
+  ALBAppName:
+    Type: String
+    Description: App Name of the Application Load Balancer (from ARN, copy from app, no need of slash before app)
+
+  RDSInstanceIdentifier:
+    Type: String
+    Description: RDS Instance Identifier
+
+  CloudFrontDistributionId:
+    Type: String
+    Description: ID of the CloudFront Distribution
+
+  WAFWebACLName:
+    Type: String
+    Description: Name of the WAF Web ACL
+
+  SNSEmail:
+    Type: String
+    Description: Email address to send alarm notifications
+
+Resources:
+  # SNS Topic for Alarm Notifications
+  AlarmSNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref SNSEmail
+
+  # CloudWatch Dashboard
+  ECommerceDashboard:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardName: ECommerceDashboard
+      DashboardBody: 
+        Fn::Sub: |
+          {
+            "widgets": [
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "metrics": [                  
+                    [ "AWS/AutoScaling", "GroupTotalCapacity", "AutoScalingGroupName", "${AutoScalingGroupName}" ],
+                    [ ".", "GroupMinSize", ".", "." ],
+                    [ ".", "GroupStandbyInstances", ".", "." ],
+                    [ ".", "GroupTerminatingInstances", ".", "." ],
+                    [ ".", "GroupPendingInstances", ".", "." ],
+                    [ ".", "GroupInServiceInstances", ".", "." ],
+                    [ ".", "GroupDesiredCapacity", ".", "." ],
+                    [ ".", "GroupMaxSize", ".", "." ],
+                    [ "AWS/EC2", "CPUUtilization", ".", "." ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "us-east-1",
+                  "title": "EC2 Auto Scaling - CPU Utilization & Instance Count"
+                }
+              },
+              {
+                "type": "metric",
+                "x": 12,
+                "y": 0,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "metrics": [
+                      [ "AWS/ApplicationELB", "RequestCount", "LoadBalancer", "${ALBAppName}" ],
+                      [ ".", "HTTPCode_Target_4XX_Count", ".", "." ],
+                      [ ".", "TargetResponseTime", ".", "." ],
+                      [ ".", "PeakLCUs", ".", "." ],
+                      [ ".", "ConsumedLCUs", ".", "." ],
+                      [ ".", "HTTPCode_Target_5XX_Count", ".", "." ],  
+                      [ ".", "TargetResponseTime", ".", "." ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "us-east-1",
+                  "title": "ALB - Request Count, Errors & Latency"
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 6,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", "${RDSInstanceIdentifier}" ],
+                    [ ".", "ReadIOPS", ".", "." ],
+                    [ ".", "WriteIOPS", ".", "." ],
+                    [ ".", "ReadLatency", ".", "." ],
+                    [ ".", "WriteLatency", ".", "." ],
+                    [ ".", "CPUUtilization", ".", "." ],
+                    [ "AWS/RDS", "ReplicaLag", "DBInstanceIdentifier", "${RDSInstanceIdentifier}" ], 
+                    [ "AWS/RDS", "FailoverCount", "DBInstanceIdentifier", "${RDSInstanceIdentifier}" ] 
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "us-east-1",
+                  "title": "RDS - Database Metrics & Latency"
+                }
+              },
+              {
+                "type": "metric",
+                "x": 12,
+                "y": 6,
+                "width": 12,
+                "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/CloudFront", "5xxErrorRate", "Region", "Global", "DistributionId", "${CloudFrontDistributionId}" ],
+                    [ ".", "Requests", ".", ".", ".", "." ],
+                    [ ".", "4xxErrorRate", ".", ".", ".", "." ],
+                    [ ".", "TotalErrorRate", ".", ".", ".", "." ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "us-east-1",
+                  "title": "CloudFront - Requests, Errors Rate"
+                }
+              },
+              {
+                "type": "metric",
+                "x": 0,
+                "y": 12,
+                "width": 24,
+                "height": 6,
+                "properties": {
+                  "metrics": [
+                    [ "AWS/WAFV2", "AllowedRequests", "WebACL", "${WAFWebACLName}", "Device", "Mobile", "Region", "us-east-1" ],
+                    [ "...", "Desktop", ".", "." ],
+                    [ "...", "Tablet", ".", "." ],
+                    [ ".", "BlockedRequests", ".", ".", "Region", "us-east-1", "Rule", "ALL" ],
+                    [ ".", "AllowedRequests", ".", ".", ".", ".", ".", "." ]
+                  ],
+                  "view": "timeSeries",
+                  "stacked": false,
+                  "region": "us-east-1",
+                  "title": "WAF - Requests (Blocked, Allowed & Sampled)"
+                }
+              }
+            ]
+          }
+
+  # High CPU Utilization Alarm for EC2 Auto Scaling Group
+  HighCPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-EC2-CPU-Utilization"
+      MetricName: "CPUUtilization"
+      Namespace: "AWS/EC2"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # Low In-Service Instances Alarm
+  LowInServiceInstancesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "Low-In-Service-Instances"
+      MetricName: "GroupInServiceInstances"
+      Namespace: "AWS/AutoScaling"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2
+      ComparisonOperator: "LessThanThreshold"
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High Pending Instances Alarm
+  HighPendingInstancesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-Pending-Instances"
+      MetricName: "GroupPendingInstances"
+      Namespace: "AWS/AutoScaling"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High 4XX Error Rate Alarm for ALB
+  HighALB4xxErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-ALB-4XX-Error-Rate"
+      MetricName: "HTTPCode_Target_4XX_Count"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Sum"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref ALBAppName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High Latency Alarm for ALB
+  HighALBLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-ALB-Latency"
+      MetricName: "TargetResponseTime"
+      Namespace: "AWS/ApplicationELB"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 1
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: LoadBalancer
+          Value: !Ref ALBAppName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High Database Connections Alarm
+  HighDatabaseConnectionsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-RDS-Connections"
+      MetricName: "DatabaseConnections"
+      Namespace: "AWS/RDS"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstanceIdentifier
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High 5XX Error Rate Alarm for CloudFront
+  HighCloudFront5xxErrorRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-CloudFront-5XX-Error-Rate"
+      MetricName: "5xxErrorRate"
+      Namespace: "AWS/CloudFront"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 2
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref CloudFrontDistributionId
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # Low Cache Hit Rate Alarm for CloudFront
+  LowCacheHitRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "Low-CloudFront-Cache-Hit-Rate"
+      MetricName: "CacheHitRate"
+      Namespace: "AWS/CloudFront"
+      Statistic: "Average"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 80
+      ComparisonOperator: "LessThanThreshold"
+      Dimensions:
+        - Name: DistributionId
+          Value: !Ref CloudFrontDistributionId
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+  # High Blocked Requests Alarm for WAF
+  HighBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-WAF-Blocked-Requests"
+      MetricName: "BlockedRequests"
+      Namespace: "AWS/WAFV2"
+      Statistic: "Sum"
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 100
+      ComparisonOperator: "GreaterThanThreshold"
+      Dimensions:
+        - Name: WebACL
+          Value: !Ref WAFWebACLName
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+
+Outputs:
+  CloudWatchDashboardName:
+    Description: Name of the CloudWatch Dashboard
+    Value: !Ref ECommerceDashboard
+
+  AlarmSNSTopicArn:
+    Description: ARN of the SNS Topic for Alarm Notifications
+    Value: !Ref AlarmSNSTopic
+
