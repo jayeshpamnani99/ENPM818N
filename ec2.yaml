@@ -87,6 +87,14 @@ Resources:
       HealthCheckIntervalSeconds: 30  # Health checks every 30 seconds
       HealthyThresholdCount: 3  # Consider instance healthy after 3 successful checks
       UnhealthyThresholdCount: 3  # Consider instance unhealthy after 3 failed checks
+      # Enable stickiness for session persistence
+      TargetGroupAttributes:
+        - Key: stickiness.enabled
+          Value: 'true'
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: '600'
 
   
   # HTTP Listener for ALB
