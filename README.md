@@ -1,3 +1,5 @@
+# Initial Setup to create the AMI Image 
+
 #!/bin/bash
 sudo yum update -y
 sudo amazon-linux-extras enable php8.0
@@ -39,16 +41,18 @@ sudo systemctl restart httpd
 
 
 
+# Execute command in MYSQL to enforce SSL Connection
+
+ALTER USER 'admin' REQUIRE SSL;
+FLUSH PRIVILEGES;
 
 
 
 
 
+# Connect to SQL RDS from the EC2 instance
 
-
-
-
-mysql -h <Your RDS Endpoint> -u <Your Username> -p
-mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com --ssl-ca=us-east-1-bundle.pem --ssl-mode=REQUIRED -P 3306 -u admin -p
+mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com -u admin -p
+mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com --ssl-ca=global-bundle.pem  -P 3306 -u admin -p
 
 
