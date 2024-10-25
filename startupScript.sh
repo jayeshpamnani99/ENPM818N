@@ -15,7 +15,7 @@ RDS_PASSWORD=$(echo $SECRET | jq -r .RDS_PASSWORD)
 RDS_DBNAME=$(echo $SECRET | jq -r .RDS_DBNAME)
 
 # Update PHP connection details
-sed -i "s/\$servername =.*/\$servername = '${RDS_HOST}';/" /var/www/html/includes/connect.php
-sed -i "s/\$username =.*/\$username = '${RDS_USER}';/" /var/www/html/includes/connect.php
-sed -i "s/\$password =.*/\$password = '${RDS_PASSWORD}';/" /var/www/html/includes/connect.php
-sed -i "s/\$dbname =.*/\$dbname = '${RDS_DBNAME}';/" /var/www/html/includes/connect.php
+sudo sed -i "s/\$servername =.*/\$servername = '${RDS_HOST}';/" /var/www/html/includes/connect.php
+sudo sed -i "s/\$username =.*/\$username = '${RDS_USER}';/" /var/www/html/includes/connect.php
+sudo sed -i "s/\$password =.*/\$password = '${RDS_PASSWORD}';/" /var/www/html/includes/connect.php
+sudo sed -i "s/\$dbname =.*/\$dbname = '${RDS_DBNAME}';/" /var/www/html/includes/connect.php
