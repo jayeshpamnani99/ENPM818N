@@ -135,7 +135,7 @@ Resources:
                 "type": "metric",
                 "x": 0,
                 "y": 6,
-                "width": 12,
+                "width": 24,
                 "height": 6,
                 "properties": {
                   "metrics": [
@@ -151,7 +151,7 @@ Resources:
                   "view": "timeSeries",
                   "stacked": false,
                   "region": "us-east-1",
-                  "title": "RDS - Database Metrics & Latency"
+                  "title": "RDS - Query Performance Metrics"
                 }
               },
               {
@@ -176,8 +176,8 @@ Resources:
               {
                 "type": "metric",
                 "x": 0,
-                "y": 12,
-                "width": 24,
+                "y": 6,
+                "width": 12,
                 "height": 6,
                 "properties": {
                   "metrics": [
@@ -193,6 +193,7 @@ Resources:
                   "title": "WAF - Requests (Blocked, Allowed & Sampled)"
                 }
               }
+              
             ]
           }
 
@@ -227,13 +228,13 @@ Resources:
     Type: AWS::CloudWatch::Alarm  # CloudWatch alarm to monitor low CPU utilization
     Properties:
       AlarmName: "Low-EC2-CPU-Utilization"
-      AlarmDescription: "Scale down instances when CPU utilizatio is lower than 20% "  # Description of the alarm for easy identification
-      MetricName: CPUUtilization  # The CloudWatch metric to monitor
+      AlarmDescription: "Scale down instances when CPU utilizatio is lower than 20% "  
+      MetricName: CPUUtilization
       Namespace: AWS/EC2  # The AWS namespace for EC2 metrics
-      Statistic: Average  # Use the average of the CPUUtilization metric
+      Statistic: Average  
       Period: 60  # Check the CPU every 60 seconds
       EvaluationPeriods: 2  # Alarm will trigger if CPU drops below 20% for 2 consecutive periods
-      Threshold: 20  # Trigger scaling when CPU utilization drops below 20%
+      Threshold: 20  
       ComparisonOperator: LessThanThreshold  # Trigger the alarm when CPU is less than the threshold
       AlarmActions:
         - !ImportValue "ec2Config-ScaleDownPolicyARN" 
@@ -299,6 +300,7 @@ Resources:
           Value: !Ref ALBAppName
       AlarmActions:
         - !Ref AlarmSNSTopic
+      TreatMissingData: notBreaching
 
 
 
@@ -361,6 +363,7 @@ Resources:
           Value: "Global"
       AlarmActions:
         - !Ref AlarmSNSTopic
+      TreatMissingData: notBreaching
 
 
 
@@ -423,13 +426,34 @@ Resources:
       Namespace: "Ecommerce/WAFV2"  # Using the custom namespace created by the Metric Filter
       MetricName: "BlockedRequests"
       Statistic: Sum
-      Period: 300  # 5 minutes (can adjust based on your monitoring needs)
+      Period: 300  
       EvaluationPeriods: 1
       Threshold: !Ref BlockedRequestAlarmThreshold  # Trigger alarm when blocked requests exceed 100 in the given period
       ComparisonOperator: GreaterThanOrEqualToThreshold
       AlarmActions:
         - !Ref AlarmSNSTopic  # Sends notification to SNS when the alarm is triggered
       TreatMissingData: notBreaching
+
+  
+  HighRDSReadLatencyAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "High-RDS-Read-Latency"
+      AlarmDescription: "Alarm when RDS Read Latency exceeds acceptable threshold"
+      MetricName: "ReadLatency"
+      Namespace: "AWS/RDS"
+      Statistic: "Average"
+      Period: 60
+      EvaluationPeriods: 2
+      Threshold: 0.1 
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: !Ref RDSInstanceIdentifier
+      AlarmActions:
+        - !Ref AlarmSNSTopic
+      TreatMissingData: notBreaching 
+
 
 
 
