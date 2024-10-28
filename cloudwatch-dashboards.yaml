@@ -357,6 +357,8 @@ Resources:
       Dimensions:
         - Name: DistributionId
           Value: !Ref CloudFrontDistributionId
+        - Name: Region
+          Value: "Global"
       AlarmActions:
         - !Ref AlarmSNSTopic
 
@@ -377,6 +379,8 @@ Resources:
       Dimensions:
         - Name: DistributionId
           Value: !Ref CloudFrontDistributionId
+        - Name: Region
+          Value: 'Global'
       AlarmActions:
         - !Ref AlarmSNSTopic
 
