@@ -7,7 +7,7 @@ sudo yum clean metadata
 sudo yum install php php-cli php-common php-mysqlnd php-json php-fpm php-mbstring -y
 sudo yum install git -y
 sudo yum install httpd -y
-sudo yum install jq
+sudo yum install jq -y 
 sudo systemctl start httpd
 sudo systemctl enable httpd
 sudo yum install mysql -y
@@ -22,9 +22,14 @@ sudo rm waf.yaml
 sudo rm ec2.yaml
 sudo rm rds.yaml
 sudo rm security-groups.yaml
+sudo rm elasticache.yaml
+sudo rm cloudwatch-dashboards.yaml
 sudo rm -rf ENPM818N
 sudo mv ecommerceAPP/* .
 sudo rm -rf ecommerceAPP
+sudo chmod 777 /var/www/html/
+sudo chown -R apache:apache /var/www/html
+sudo chmod +x /var/www/html/startupScript.sh
 AWS_REGION="us-east-1"
 SECRET=$(aws secretsmanager get-secret-value --secret-id "ecommerce/rds/credentials2" --query SecretString --output text --region $AWS_REGION)
 RDS_HOST=$(echo $SECRET | jq -r .RDS_HOST)
@@ -54,5 +59,8 @@ FLUSH PRIVILEGES;
 
 mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com -u admin -p
 mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com --ssl-ca=global-bundle.pem  -P 3306 -u admin -p
+SHOW SESSION STATUS LIKE 'Ssl_cipher';
+SHOW VARIABLES LIKE '%ssl%';
+
 
 

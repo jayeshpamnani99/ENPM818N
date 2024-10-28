@@ -55,6 +55,10 @@ Parameters:
     Type: "AWS::EC2::KeyPair::KeyName"
     ConstraintDescription: "Must be an existing EC2 KeyPair name."
 
+  InstanceIAMRole:
+    Type: String
+    Description: The IAM Role to associate with EC2 instances in the Auto Scaling Group
+
 
 
 Resources:
@@ -136,6 +140,8 @@ Resources:
       LaunchTemplateName: EcommerceLaunchTemplate  # Name for easy identification
       LaunchTemplateData:
         InstanceType: !Ref InstanceType  # Use the instance type from the parameters
+        IamInstanceProfile:
+          Arn: !Ref InstanceIAMRole
         ImageId: !Ref AMIId  # Use the AMI ID from the parameters
         SecurityGroupIds:
           - !Ref EC2InstanceSecurityGroupId  # Use the EC2 instance security group
@@ -197,43 +203,19 @@ Resources:
 
     
 
-  # CloudWatch Alarm for scaling up when CPU exceeds 50%
-  HighCPUAlarm:
-    Type: AWS::CloudWatch::Alarm  # CloudWatch alarm to monitor high CPU utilization
-    Properties:
-      AlarmDescription: "Scale up when CPU exceeds 50%"  # Description of the alarm for easy identification
-      MetricName: CPUUtilization  # The CloudWatch metric to monitor
-      Namespace: AWS/EC2  # The AWS namespace for EC2 metrics
-      Statistic: Average  # Use the average of the CPUUtilization metric
-      Period: 60  # Check the CPU every 60 seconds
-      EvaluationPeriods: 2  # Alarm will trigger if CPU exceeds 50% for 2 consecutive periods
-      Threshold: 50  # Trigger scaling when CPU utilization exceeds 50%
-      ComparisonOperator: GreaterThanThreshold  # Trigger the alarm when CPU is greater than the threshold
-      AlarmActions:
-        - !Ref ScaleUpPolicy  # Trigger the scale-up policy when alarm is triggered
-      Dimensions:
-        - Name: AutoScalingGroupName
-          Value: !Ref MyAutoScalingGroup  # Associate the alarm with the Auto Scaling group
-
-  # CloudWatch Alarm for scaling down when CPU is below 20%
-  LowCPUAlarm:
-    Type: AWS::CloudWatch::Alarm  # CloudWatch alarm to monitor low CPU utilization
-    Properties:
-      AlarmDescription: "Scale down when CPU is below 20%"  # Description of the alarm for easy identification
-      MetricName: CPUUtilization  # The CloudWatch metric to monitor
-      Namespace: AWS/EC2  # The AWS namespace for EC2 metrics
-      Statistic: Average  # Use the average of the CPUUtilization metric
-      Period: 60  # Check the CPU every 60 seconds
-      EvaluationPeriods: 2  # Alarm will trigger if CPU drops below 20% for 2 consecutive periods
-      Threshold: 20  # Trigger scaling when CPU utilization drops below 20%
-      ComparisonOperator: LessThanThreshold  # Trigger the alarm when CPU is less than the threshold
-      AlarmActions:
-        - !Ref ScaleDownPolicy  # Trigger the scale-down policy when alarm is triggered
-      Dimensions:
-        - Name: AutoScalingGroupName
-          Value: !Ref MyAutoScalingGroup  # Associate the alarm with the Auto Scaling group
-
 Outputs:
   LoadBalancerDNSName:
     Description: DNS Name of the Application Load Balancer
     Value: !GetAtt EcommerceALB.DNSName
+
+  ScaleUpPolicyARN:
+    Description: ARN of the scale up policy
+    Value: !Ref ScaleUpPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-ScaleUpPolicyARN"
+
+  ScaleDownPolicyARN:
+    Description: ARN of the scale down policy
+    Value: !Ref ScaleDownPolicy
+    Export:
+      Name: !Sub "${AWS::StackName}-ScaleDownPolicyARN"

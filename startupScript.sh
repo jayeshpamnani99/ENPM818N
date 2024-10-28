@@ -4,7 +4,6 @@ sudo systemctl enable httpd
 sudo chmod -R 755 /var/www/html/
 sudo chown -R apache:apache /var/www/html/
 sudo chmod -R 1777 /tmp
-sudo systemctl restart httpd
 
 # Retrieve secrets from Secrets Manager
 AWS_REGION="us-east-1"
@@ -19,3 +18,6 @@ sudo sed -i "s/\$servername =.*/\$servername = '${RDS_HOST}';/" /var/www/html/in
 sudo sed -i "s/\$username =.*/\$username = '${RDS_USER}';/" /var/www/html/includes/connect.php
 sudo sed -i "s/\$password =.*/\$password = '${RDS_PASSWORD}';/" /var/www/html/includes/connect.php
 sudo sed -i "s/\$dbname =.*/\$dbname = '${RDS_DBNAME}';/" /var/www/html/includes/connect.php
+
+sudo systemctl restart httpd
+

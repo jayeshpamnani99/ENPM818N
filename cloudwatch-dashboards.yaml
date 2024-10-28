@@ -26,14 +26,55 @@ Parameters:
     Type: String
     Description: Email address to send alarm notifications
 
+  SNSMobileNo:
+    Type : String
+    Description : Mobile no. to send notifications
+
+  BlockedRequestAlarmThreshold:
+    Type: Number
+    Default: 20
+    Description: Threshold for the cloud alarm to trigger an action for blocked request.
+
+  AllowedRequestAlarmThreshold:
+    Type: Number
+    Default: 200
+    Description: Threshold for the cloud alarm to trigger an action for blocked request.
+
+
 Resources:
-  # SNS Topic for Alarm Notifications
+
+
+
+
+  # SNS Topic for CloudWatch Alarm Notifications
   AlarmSNSTopic:
     Type: AWS::SNS::Topic
     Properties:
-      Subscription:
-        - Protocol: email
-          Endpoint: !Ref SNSEmail
+      TopicName: EcommerceApplicationAlarmNotification
+
+  # Subscription to receive email notifications
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    DependsOn: AlarmSNSTopic  # Ensure SNS Topic is created first
+    Properties:
+      TopicArn: !Ref AlarmSNSTopic
+      Protocol: email  # Notification type: email
+      Endpoint: !Ref SNSEmail
+
+  # Subscription to receive SMS notifications
+  AlarmSMSSubscription:
+    Type: AWS::SNS::Subscription
+    DependsOn: AlarmSNSTopic  # Ensure SNS Topic is created first
+    Properties:
+      TopicArn: !Ref AlarmSNSTopic
+      Protocol: sms  # Notification type: SMS
+      Endpoint: !Ref SNSMobileNo
+
+
+
+
+
+
 
   # CloudWatch Dashboard
   ECommerceDashboard:
@@ -155,23 +196,51 @@ Resources:
             ]
           }
 
+
+
+
+
   # High CPU Utilization Alarm for EC2 Auto Scaling Group
   HighCPUUtilizationAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
       AlarmName: "High-EC2-CPU-Utilization"
+      AlarmDescription: "Scale up instances when CPU exceeds 50% and notify admin"  # Description of the alarm for easy identification
       MetricName: "CPUUtilization"
       Namespace: "AWS/EC2"
       Statistic: "Average"
-      Period: 300
+      Period: 60
       EvaluationPeriods: 2
-      Threshold: 80
+      Threshold: 50
       ComparisonOperator: "GreaterThanThreshold"
       Dimensions:
         - Name: AutoScalingGroupName
           Value: !Ref AutoScalingGroupName
       AlarmActions:
         - !Ref AlarmSNSTopic
+        - !ImportValue "ec2Config-ScaleUpPolicyARN" 
+
+
+
+  # CloudWatch Alarm for scaling down when CPU is below 20%
+  LowCPUUtilizationAlarm:
+    Type: AWS::CloudWatch::Alarm  # CloudWatch alarm to monitor low CPU utilization
+    Properties:
+      AlarmName: "Low-EC2-CPU-Utilization"
+      AlarmDescription: "Scale down instances when CPU utilizatio is lower than 20% "  # Description of the alarm for easy identification
+      MetricName: CPUUtilization  # The CloudWatch metric to monitor
+      Namespace: AWS/EC2  # The AWS namespace for EC2 metrics
+      Statistic: Average  # Use the average of the CPUUtilization metric
+      Period: 60  # Check the CPU every 60 seconds
+      EvaluationPeriods: 2  # Alarm will trigger if CPU drops below 20% for 2 consecutive periods
+      Threshold: 20  # Trigger scaling when CPU utilization drops below 20%
+      ComparisonOperator: LessThanThreshold  # Trigger the alarm when CPU is less than the threshold
+      AlarmActions:
+        - !ImportValue "ec2Config-ScaleDownPolicyARN" 
+      Dimensions:
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroupName  # Associate the alarm with the Auto Scaling group
+
 
   # Low In-Service Instances Alarm
   LowInServiceInstancesAlarm:
@@ -191,6 +260,8 @@ Resources:
       AlarmActions:
         - !Ref AlarmSNSTopic
 
+
+
   # High Pending Instances Alarm
   HighPendingInstancesAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -208,6 +279,8 @@ Resources:
           Value: !Ref AutoScalingGroupName
       AlarmActions:
         - !Ref AlarmSNSTopic
+
+
 
   # High 4XX Error Rate Alarm for ALB
   HighALB4xxErrorRateAlarm:
@@ -227,6 +300,8 @@ Resources:
       AlarmActions:
         - !Ref AlarmSNSTopic
 
+
+
   # High Latency Alarm for ALB
   HighALBLatencyAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -244,6 +319,8 @@ Resources:
           Value: !Ref ALBAppName
       AlarmActions:
         - !Ref AlarmSNSTopic
+
+
 
   # High Database Connections Alarm
   HighDatabaseConnectionsAlarm:
@@ -263,6 +340,8 @@ Resources:
       AlarmActions:
         - !Ref AlarmSNSTopic
 
+
+
   # High 5XX Error Rate Alarm for CloudFront
   HighCloudFront5xxErrorRateAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -280,6 +359,8 @@ Resources:
           Value: !Ref CloudFrontDistributionId
       AlarmActions:
         - !Ref AlarmSNSTopic
+
+
 
   # Low Cache Hit Rate Alarm for CloudFront
   LowCacheHitRateAlarm:
@@ -299,23 +380,75 @@ Resources:
       AlarmActions:
         - !Ref AlarmSNSTopic
 
-  # High Blocked Requests Alarm for WAF
-  HighBlockedRequestsAlarm:
+
+  WAFAllowedRequestsAlarm:  
     Type: AWS::CloudWatch::Alarm
     Properties:
-      AlarmName: "High-WAF-Blocked-Requests"
-      MetricName: "BlockedRequests"
-      Namespace: "AWS/WAFV2"
-      Statistic: "Sum"
+      AlarmName: WAFAllowedRequestsAlarm
+      AlarmDescription: "Alarm when WAF allows requests beyond a threshold"
+      MetricName: AllowedRequests
+      Namespace: AWS/WAFV2
+      Dimensions: 
+        - Name: WebACL
+          Value: EcommerceWAFACL 
+        - Name: "Region"
+          Value: !Sub "${AWS::Region}"
+        - Name: "Rule"
+          Value: "ALL"
+      Statistic: Sum
       Period: 300
-      EvaluationPeriods: 2
-      Threshold: 100
-      ComparisonOperator: "GreaterThanThreshold"
+      EvaluationPeriods: 1
+      Threshold: !Ref AllowedRequestAlarmThreshold 
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
+      # OKActions:
+      #   - !Ref AlarmSNSTopic  # Optional: Sends notification when the alarm is resolved
+
+
+
+  WAFBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: WAFBlockedRequestsAlarm
+      MetricName: BlockedRequests
+      Namespace: AWS/WAFV2
       Dimensions:
         - Name: WebACL
-          Value: !Ref WAFWebACLName
+          Value: EcommerceWAFACL 
+        - Name: "Region"
+          Value: !Sub "${AWS::Region}"
+        - Name: "Rule"
+          Value: "ALL"
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: !Ref BlockedRequestAlarmThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
       AlarmActions:
-        - !Ref AlarmSNSTopic
+        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
+
+
+  # Alarm using the metric created by the filter
+  WAFLogBlockedRequestsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: "WAFLogBlockedRequestsHigh"
+      AlarmDescription: "Alarm when WAF blocks too many requests according to the log generated"
+      Namespace: "Ecommerce/WAFV2"  # Using the custom namespace created by the Metric Filter
+      MetricName: "BlockedRequests"
+      Statistic: Sum
+      Period: 300  # 5 minutes (can adjust based on your monitoring needs)
+      EvaluationPeriods: 1
+      Threshold: !Ref BlockedRequestAlarmThreshold  # Trigger alarm when blocked requests exceed 100 in the given period
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      AlarmActions:
+        - !Ref AlarmSNSTopic  # Sends notification to SNS when the alarm is triggered
+      TreatMissingData: notBreaching
+
+
 
 Outputs:
   CloudWatchDashboardName:

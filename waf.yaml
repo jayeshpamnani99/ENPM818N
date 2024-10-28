@@ -6,16 +6,6 @@ Parameters:
     Type: String
     Description: The ARN of the Application Load Balancer
 
-  BlockedRequestAlarmThreshold:
-    Type: Number
-    Default: 20
-    Description: Threshold for the cloud alarm to trigger an action for blocked request.
-
-  AllowedRequestAlarmThreshold:
-    Type: Number
-    Default: 200
-    Description: Threshold for the cloud alarm to trigger an action for blocked request.
-
   RateLimitRuleThreshold:
     Type: Number
     Default: 500
@@ -172,84 +162,6 @@ Resources:
       WebACLArn: !GetAtt WebACL.Arn
 
 
-  # SNS Topic for CloudWatch Alarm Notifications
-  AlarmSNSTopic:
-    Type: AWS::SNS::Topic
-    Properties:
-      TopicName: EcommerceApplicationAlarmNotification
-
-  # Subscription to receive email notifications
-  AlarmEmailSubscription:
-    Type: AWS::SNS::Subscription
-    DependsOn: AlarmSNSTopic  # Ensure SNS Topic is created first
-    Properties:
-      TopicArn: !Ref AlarmSNSTopic
-      Protocol: email  # Notification type: email
-      Endpoint: "tarang98@umd.edu"  # Replace with your email address
-
-  # Subscription to receive SMS notifications
-  AlarmSMSSubscription:
-    Type: AWS::SNS::Subscription
-    DependsOn: AlarmSNSTopic  # Ensure SNS Topic is created first
-    Properties:
-      TopicArn: !Ref AlarmSNSTopic
-      Protocol: sms  # Notification type: SMS
-      Endpoint: "+15713855625"  # Replace with your phone number
-
-
-
-
-
-  # CloudWatch Alarm 
-  WAFAllowedRequestsAlarm:  
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: WAFAllowedRequestsAlarm
-      AlarmDescription: "Alarm when WAF allows requests beyond a threshold"
-      MetricName: AllowedRequests
-      Namespace: AWS/WAFV2
-      Dimensions: 
-        - Name: WebACL
-          Value: EcommerceWAFACL 
-        - Name: "Region"
-          Value: !Sub "${AWS::Region}"
-        - Name: "Rule"
-          Value: "ALL"
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: !Ref AllowedRequestAlarmThreshold 
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
-      # OKActions:
-      #   - !Ref AlarmSNSTopic  # Optional: Sends notification when the alarm is resolved
-
-
-  WAFBlockedRequestsAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: WAFBlockedRequestsAlarm
-      MetricName: BlockedRequests
-      Namespace: AWS/WAFV2
-      Dimensions:
-        - Name: WebACL
-          Value: EcommerceWAFACL 
-        - Name: "Region"
-          Value: !Sub "${AWS::Region}"
-        - Name: "Rule"
-          Value: "ALL"
-      Statistic: Sum
-      Period: 300
-      EvaluationPeriods: 1
-      Threshold: !Ref BlockedRequestAlarmThreshold
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      TreatMissingData: notBreaching
-      AlarmActions:
-        - !Ref AlarmSNSTopic  # SNS Topic for the alarm actions
-
-
 
   ## Setting up logging manually
   # WAF Logging Configuration to CloudWatch Logs
@@ -282,23 +194,6 @@ Resources:
           MetricNamespace: "Ecommerce/WAFV2"
           MetricName: "BlockedRequests"
          
-  # Alarm using the metric created by the filter
-  WAFLogBlockedRequestsAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: "WAFLogBlockedRequestsHigh"
-      AlarmDescription: "Alarm when WAF blocks too many requests according to the log generated"
-      Namespace: "Ecommerce/WAFV2"  # Using the custom namespace created by the Metric Filter
-      MetricName: "BlockedRequests"
-      Statistic: Sum
-      Period: 300  # 5 minutes (can adjust based on your monitoring needs)
-      EvaluationPeriods: 1
-      Threshold: !Ref BlockedRequestAlarmThreshold  # Trigger alarm when blocked requests exceed 100 in the given period
-      ComparisonOperator: GreaterThanOrEqualToThreshold
-      AlarmActions:
-        - !Ref AlarmSNSTopic  # Sends notification to SNS when the alarm is triggered
-      TreatMissingData: notBreaching
-
 
 
 Outputs:
