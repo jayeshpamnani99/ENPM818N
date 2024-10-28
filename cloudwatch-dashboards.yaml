@@ -364,27 +364,6 @@ Resources:
 
 
 
-  # Low Cache Hit Rate Alarm for CloudFront
-  LowCacheHitRateAlarm:
-    Type: AWS::CloudWatch::Alarm
-    Properties:
-      AlarmName: "Low-CloudFront-Cache-Hit-Rate"
-      MetricName: "CacheHitRate"
-      Namespace: "AWS/CloudFront"
-      Statistic: "Average"
-      Period: 300
-      EvaluationPeriods: 2
-      Threshold: 80
-      ComparisonOperator: "LessThanThreshold"
-      Dimensions:
-        - Name: DistributionId
-          Value: !Ref CloudFrontDistributionId
-        - Name: Region
-          Value: 'Global'
-      AlarmActions:
-        - !Ref AlarmSNSTopic
-
-
   WAFAllowedRequestsAlarm:  
     Type: AWS::CloudWatch::Alarm
     Properties:
