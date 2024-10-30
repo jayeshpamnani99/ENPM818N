@@ -1,66 +1,17 @@
-# Initial Setup to create the AMI Image 
+![AWS Architecture Diagram (1)](https://github.com/user-attachments/assets/aa8c5ad6-85c7-45aa-bef0-e39906bcc266)
 
-#!/bin/bash
-sudo yum update -y
-sudo amazon-linux-extras enable php8.0
-sudo yum clean metadata
-sudo yum install php php-cli php-common php-mysqlnd php-json php-fpm php-mbstring -y
-sudo yum install git -y
-sudo yum install httpd -y
-sudo yum install jq -y 
-sudo systemctl start httpd
-sudo systemctl enable httpd
-sudo yum install mysql -y
-cd /var/www/html
-sudo git clone https://github.com/jayeshpamnani99/ENPM818N.git
-sudo mv ENPM818N/* .
-sudo rm CLIAccess.pem
-sudo rm networking.yaml
-sudo rm README.md
-sudo rm SSHAccess.pem
-sudo rm waf.yaml
-sudo rm ec2.yaml
-sudo rm rds.yaml
-sudo rm security-groups.yaml
-sudo rm elasticache.yaml
-sudo rm cloudwatch-dashboards.yaml
-sudo rm -rf ENPM818N
-sudo mv ecommerceAPP/* .
-sudo rm -rf ecommerceAPP
-sudo chmod 777 /var/www/html/
-sudo chown -R apache:apache /var/www/html
-sudo chmod +x /var/www/html/startupScript.sh
-AWS_REGION="us-east-1"
-SECRET=$(aws secretsmanager get-secret-value --secret-id "ecommerce/rds/credentials2" --query SecretString --output text --region $AWS_REGION)
-RDS_HOST=$(echo $SECRET | jq -r .RDS_HOST)
-RDS_USER=$(echo $SECRET | jq -r .RDS_USER)
-RDS_PASSWORD=$(echo $SECRET | jq -r .RDS_PASSWORD)
-RDS_DBNAME=$(echo $SECRET | jq -r .RDS_DBNAME)
-sudo sed -i "s/\$servername =.*/\$servername = '${RDS_HOST}';/" /var/www/html/includes/connect.php
-sudo sed -i "s/\$username =.*/\$username = '${RDS_USER}';/" /var/www/html/includes/connect.php
-sudo sed -i "s/\$password =.*/\$password = '${RDS_PASSWORD}';/" /var/www/html/includes/connect.php
-sudo sed -i "s/\$dbname =.*/\$dbname = '${RDS_DBNAME}';/" /var/www/html/includes/connect.php
-sudo systemctl restart httpd
+## Key Architectural Highlights 
 
+1.	Network and Security: Configured as a multi-AZ VPC for redundancy, with security groups controlling access at each layer.
+o	Bastion Host: Acts as a secure gateway, with one PEM key dedicated to accessing the bastion host and another to securely SSH into the web server instances within the private subnet.
+o	Application Load Balancer: Controls incoming traffic to the web servers, enabling automatic load balancing.
+o	EC2 and RDS Security Groups: Separate rules control access to EC2 instances and the RDS MySQL database, enforcing network segmentation.
+o	WAF is configured to filter traffic through the Application Load Balancer, blocking potentially malicious requests based on customizable rules. This helps ensure that the application remains resilient against common exploits, contributing to a secure environment for the e-commerce platform.
 
+2.	Compute and Auto Scaling: EC2 instances run in an Auto Scaling Group, enabling the platform to dynamically scale based on traffic, behind an Application Load Balancer to manage traffic. Testing with Apache JMeter confirmed that the setup scales effectively under load, meeting demand during peak times without over-provisioning.
 
+3.	CDN and Static Asset Management: A CloudFront CDN delivers static assets stored in S3, reducing latency and server load by offloading this content delivery to the CDN.
 
+4.	Database Security: Amazon RDS MySQL with Multi-AZ configuration and enforced SSL for secure data-in-transit between the app and the database. SSL configurations have been verified for encryption.
 
-# Execute command in MYSQL to enforce SSL Connection
-
-ALTER USER 'admin' REQUIRE SSL;
-FLUSH PRIVILEGES;
-
-
-
-
-
-# Connect to SQL RDS from the EC2 instance
-
-mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com -u admin -p
-mysql -h ecommerce-db-instance.czg8cso4sgh8.us-east-1.rds.amazonaws.com --ssl-ca=global-bundle.pem  -P 3306 -u admin -p
-SHOW SESSION STATUS LIKE 'Ssl_cipher';
-SHOW VARIABLES LIKE '%ssl%';
-
-
-
+5.	Automation and Secrets Management: The architecture uses pre-configured CloudFormaltion templates and AMIs, automated deployments, and AWS Secrets Manager for securely managing database credentials, with IAM roles providing the necessary permissions.
