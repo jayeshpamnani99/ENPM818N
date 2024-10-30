@@ -185,6 +185,7 @@ Resources:
   # Metric Filter to capture WAF blocked requests
   WAFBlockedRequestsMetricFilter:
     Type: AWS::Logs::MetricFilter
+    DependsOn: CloudWatchLogGroup
     Properties:
       LogGroupName: "aws-waf-logs-my-ecommerce-logs"
       FilterName : BlockedRequestLogFilter,

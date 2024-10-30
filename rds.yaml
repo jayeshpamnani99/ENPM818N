@@ -127,7 +127,6 @@ Resources:
         - HasSnapshot  # Condition that checks if a snapshot identifier is provided
         - !Ref "AWS::NoValue"  # Ignore this property if no snapshot is provided
         - !Ref DBName
-    # Correct way to apply DeletionPolicy
     DeletionPolicy: Snapshot
 
 
