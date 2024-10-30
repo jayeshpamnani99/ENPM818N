@@ -9,20 +9,6 @@ Parameters:
 Resources:
 
   
-  # Security Group for ElastiCache to allow access only from EC2 instances
-  ElastiCacheSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: "Security Group for ElastiCache allowing access from EC2 instances"
-      VpcId: !Ref VPCId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 6379  # Redis port
-          ToPort: 6379
-          SourceSecurityGroupId: !Ref EC2InstanceSecurityGroup  # Security group of the EC2 instances
-      Tags:
-        - Key: Name
-          Value: ElastiCacheSecurityGroup
 
   # Security Group for Application Load Balancer (ALB)
   ALBSecurityGroup:
